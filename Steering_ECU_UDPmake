@@ -1,0 +1,25 @@
+CXX = mingw32-g++
+BM_LIB = -L"C:\BUSMASTER_v3.2.2\SimulatedSystems\OBJ" -lWrapper_CAN
+
+BM_INCLUDES = -I"C:\BUSMASTER_v3.2.2\SimulatedSystems\Include"
+
+CXXFLAGS = -Wall -c
+#$(BM_INCLUDE)
+
+dll = Steering_ECU_UDP.dll
+
+DBOBJFILE = 
+
+DBINCLUDES = 
+
+
+all: $(dll)
+
+$(dll): Steering_ECU_UDP.o
+	$(CXX) -shared -Wl,--dll  Steering_ECU_UDP.o $(DBOBJFILE) $(BM_LIB) -o $@
+
+Steering_ECU_UDP.o: C:/BUSMAS~1.2/Examples/STEERI~1.CPP
+	$(CXX) $(DBINCLUDES) $(CXXFLAGS) $(BM_INCLUDES) $< -o $@
+
+clean: 
+	del /f Steering_ECU_UDP.o
