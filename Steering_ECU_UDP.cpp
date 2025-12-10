@@ -5,25 +5,21 @@
 
 /* Start BUSMASTER include header */
 #include <windows.h>
-#include <math.h>  // For sin() function
 #include "C:\BUSMASTER_v3.2.2\SimulatedSystems\include\CANIncludes.h"
 /* End BUSMASTER include header */
 
 /* Start BUSMASTER global variable */
-STCAN_MSG steeringMsg;
-float laststeering = 0.0f;
+CAN_steering steeringMsg;
 int messageCount = 0;
-bool useSimulation = true;
 /* End BUSMASTER global variable */
 
 /* Dynamic loading of Winsock functions */
 HMODULE hWs2_32 = NULL;
-void* udpSocket = NULL;  // Will cast to SOCKET when needed
+void* udpSocket = NULL;
 
 /* Function pointer types */
 typedef int (__stdcall *PFN_WSASTARTUP)(WORD, void*);
 typedef int (__stdcall *PFN_WSACLEANUP)(void);
-typedef int (__stdcall *PFN_WSAGETLASTERROR)(void);
 typedef void* (__stdcall *PFN_SOCKET)(int, int, int);
 typedef int (__stdcall *PFN_CLOSESOCKET)(void*);
 typedef int (__stdcall *PFN_BIND)(void*, const void*, int);
@@ -34,7 +30,6 @@ typedef unsigned short (__stdcall *PFN_HTONS)(unsigned short);
 /* Function pointers */
 PFN_WSASTARTUP pfnWSAStartup = NULL;
 PFN_WSACLEANUP pfnWSACleanup = NULL;
-PFN_WSAGETLASTERROR pfnWSAGetLastError = NULL;
 PFN_SOCKET pfnSocket = NULL;
 PFN_CLOSESOCKET pfnClosesocket = NULL;
 PFN_BIND pfnBind = NULL;
@@ -42,7 +37,7 @@ PFN_RECVFROM pfnRecvfrom = NULL;
 PFN_IOCTLSOCKET pfnIoctlsocket = NULL;
 PFN_HTONS pfnHtons = NULL;
 
-/* Custom sockaddr structure to avoid conflicts */
+/* Custom sockaddr structure */
 struct MySockAddr {
     short family;
     unsigned short port;
@@ -53,23 +48,20 @@ struct MySockAddr {
 /* Start BUSMASTER Function Prototype */
 GCC_EXTERN void GCC_EXPORT OnDLL_Load();
 GCC_EXTERN void GCC_EXPORT OnDLL_Unload();
-GCC_EXTERN void GCC_EXPORT OnTimer_OnTimer_Tran_10();
+GCC_EXTERN void GCC_EXPORT OnTimer_steeringTransmit_10();
 /* End BUSMASTER Function Prototype */
 
 /* Initialize UDP Socket */
 bool InitUDP()
 {
-    // Load ws2_32.dll
     hWs2_32 = LoadLibrary("ws2_32.dll");
     if (!hWs2_32) {
         Trace("steering ECU: Failed to load ws2_32.dll");
         return false;
     }
     
-    // Get function pointers
     pfnWSAStartup = (PFN_WSASTARTUP)GetProcAddress(hWs2_32, "WSAStartup");
     pfnWSACleanup = (PFN_WSACLEANUP)GetProcAddress(hWs2_32, "WSACleanup");
-    pfnWSAGetLastError = (PFN_WSAGETLASTERROR)GetProcAddress(hWs2_32, "WSAGetLastError");
     pfnSocket = (PFN_SOCKET)GetProcAddress(hWs2_32, "socket");
     pfnClosesocket = (PFN_CLOSESOCKET)GetProcAddress(hWs2_32, "closesocket");
     pfnBind = (PFN_BIND)GetProcAddress(hWs2_32, "bind");
@@ -83,15 +75,13 @@ bool InitUDP()
         return false;
     }
     
-    // Initialize Winsock
-    char wsaData[400];  // Enough space for WSADATA
+    char wsaData[400];
     if (pfnWSAStartup(0x0202, wsaData) != 0) {
         Trace("steering ECU: WSAStartup failed");
         FreeLibrary(hWs2_32);
         return false;
     }
     
-    // Create socket (AF_INET=2, SOCK_DGRAM=2, IPPROTO_UDP=17)
     udpSocket = pfnSocket(2, 2, 17);
     if (!udpSocket || udpSocket == (void*)-1) {
         Trace("steering ECU: Socket creation failed");
@@ -100,7 +90,6 @@ bool InitUDP()
         return false;
     }
     
-    // Set non-blocking mode (FIONBIO = 0x8004667E)
     unsigned long mode = 1;
     if (pfnIoctlsocket(udpSocket, 0x8004667E, &mode) != 0) {
         Trace("steering ECU: Failed to set non-blocking mode");
@@ -110,30 +99,27 @@ bool InitUDP()
         return false;
     }
     
-    // Bind to port 5100
     MySockAddr addr;
     memset(&addr, 0, sizeof(addr));
-    addr.family = 2;  // AF_INET
+    addr.family = 2;
     addr.port = pfnHtons(5104);
-    addr.addr = 0;    // INADDR_ANY
+    addr.addr = 0;
     
     if (pfnBind(udpSocket, &addr, sizeof(addr)) != 0) {
-        Trace("steering ECU: Bind to port 5100 failed");
+        Trace("steering ECU: Bind to port 5104 failed");
         pfnClosesocket(udpSocket);
         pfnWSACleanup();
         FreeLibrary(hWs2_32);
         return false;
     }
     
-    Trace("steering ECU: UDP socket bound to port 5101, waiting for CARLA data");
-    useSimulation = false;
+    Trace("steering ECU: UDP socket bound to port 5104");
     return true;
 }
 
-/* Convert big-endian float to host format */
+/* Convert big-endian float to CAN standard format */
 float NetworkToHostFloat(unsigned char* bytes)
 {
-    // CARLA sends big-endian, convert to little-endian (x86)
     unsigned char swapped[4];
     swapped[0] = bytes[3];
     swapped[1] = bytes[2];
@@ -151,12 +137,12 @@ void OnDLL_Load()
     Trace("steering ECU: Loading...");
     
     if (!InitUDP()) {
-        Trace("steering ECU: Failed to initialize UDP, running in simulation mode");
-        useSimulation = true;
+        Trace("steering ECU: ERROR - Failed to initialize UDP!");
     } else {
-        Trace("steering ECU: Successfully initialized UDP receiver on port 5101");
+        Trace("steering ECU: Ready, waiting for CARLA data on port 5104");
     }
 }
+/* End BUSMASTER generated function - OnDLL_Load */
 
 /* Start BUSMASTER generated function - OnDLL_Unload */
 void OnDLL_Unload()
@@ -172,64 +158,43 @@ void OnDLL_Unload()
     }
     Trace("steering ECU: Unloaded");
 }
+/* End BUSMASTER generated function - OnDLL_Unload */
 
-/* Start BUSMASTER generated function - OnTimer_OnTimer_Tran_10 */
-void OnTimer_OnTimer_Tran_10()
+/* Start BUSMASTER generated function - OnTimer_steeringTransmit_10 */
+void OnTimer_steeringTransmit_10()
 {
-    float steering = 0.0f;
-    bool dataReceived = false;
+    if (!udpSocket || !pfnRecvfrom) {
+        return;
+    }
     
-    if (!useSimulation && udpSocket && pfnRecvfrom) {
-        // Try to receive UDP data from CARLA
-        char buffer[256];
-        MySockAddr from;
-        int fromLen = sizeof(from);
+    char buffer[256];
+    MySockAddr from;
+    int fromLen = sizeof(from);
+    
+    /* Only process if we receive data */
+    int received = pfnRecvfrom(udpSocket, buffer, sizeof(buffer), 0, 
+                               &from, &fromLen);
+    
+    if (received >= 4) {
+        /* Convert from network byte order */
+        float steering = NetworkToHostFloat((unsigned char*)buffer);
         
-        int received = pfnRecvfrom(udpSocket, buffer, sizeof(buffer), 0, 
-                                  &from, &fromLen);
+        /* Set signal value - copy float bytes directly */
+        UINT32 steeringValue;
+        memcpy(&steeringValue, &steering, 4);
+        steeringMsg.steering_current = steeringValue;
         
-        if (received >= 4) {
-            // CARLA sends big-endian float
-            steering = NetworkToHostFloat((unsigned char*)buffer);
-            laststeering = steering;
-            dataReceived = true;
-            
-            // Log the received data periodically
-            if (messageCount % 20 == 0) {
-                Trace("steering ECU: Received %.2f from CARLA", steering);
-            }
-        }
+        /* Send CAN message */
+        SendMsg(steeringMsg);
+        
+        messageCount++;
+        Trace("steering ECU: RX %.2f km/h -> TX CAN ID=0x127 Data=[%02X %02X %02X %02X]", 
+              steering,
+              (steeringValue) & 0xFF,
+              (steeringValue >> 8) & 0xFF,
+              (steeringValue >> 16) & 0xFF,
+              (steeringValue >> 24) & 0xFF);
     }
-    
-    // If no data received, use last known steering or simulation
-    if (!dataReceived) {
-        if (!useSimulation) {
-            // Use last received steering from CARLA
-            steering = laststeering;
-        } else {
-            // Simulation mode - generate test data
-            static int simCounter = 0;
-            simCounter++;
-            steering = 50.0f + 30.0f * sin(simCounter * 0.01f);
-        }
-    }
-    
-    // Create and send CAN message
-    steeringMsg.id = 0x127;
-    steeringMsg.dlc = 4;
-    
-    // Pack steering as little-endian (native x86 format) for CAN
-    memcpy(steeringMsg.data, &steering, 4);
-    
-    // Send CAN message
-    SendMsg(steeringMsg);
-    
-    // Log CAN transmission periodically
-    messageCount++;
-    if (messageCount % 20 == 0) {
-        Trace("steering ECU: TX CAN 0x%03X steering=%.2f %s", 
-              steeringMsg.id, steering, 
-              useSimulation ? "(Simulated)" : "(from CARLA)");
-    }
+    /* If no data received, do nothing - no transmission */
 }
-/* End BUSMASTER generated function - OnTimer_OnTimer_Tran_10 */
+/* End BUSMASTER generated function - OnTimer_steeringTransmit_10 */

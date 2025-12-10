@@ -1,0 +1,25 @@
+CXX = mingw32-g++
+BM_LIB = -L"C:\BUSMASTER_v3.2.2\SimulatedSystems\OBJ" -lWrapper_CAN
+
+BM_INCLUDES = -I"C:\BUSMASTER_v3.2.2\SimulatedSystems\Include"
+
+CXXFLAGS = -Wall -c
+#$(BM_INCLUDE)
+
+dll = Speed_ECU_UDP.dll
+
+DBOBJFILE = "C:\ProgramData\BUSMASTER\General\DBCache\E1E2_gcc10.3.0.obj" 
+
+DBINCLUDES = -include"C:\ProgramData\BUSMASTER\General\DBCache\E1E2.h" 
+
+
+all: $(dll)
+
+$(dll): Speed_ECU_UDP.o
+	$(CXX) -shared -Wl,--dll  Speed_ECU_UDP.o $(DBOBJFILE) $(BM_LIB) -o $@
+
+Speed_ECU_UDP.o: C:/BUSMAS~1.2/Examples/SPEED_~1.CPP
+	$(CXX) $(DBINCLUDES) $(CXXFLAGS) $(BM_INCLUDES) $< -o $@
+
+clean: 
+	del /f Speed_ECU_UDP.o

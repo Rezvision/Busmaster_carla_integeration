@@ -19,6 +19,6 @@ vSetGetMessageName
 vSetTimeNow
 vSetGetFirstCANdbName
 
-OnTimer_steeringTransmit_10
+OnTimer_OnTimer_Tran_10
 OnDLL_Load
 OnDLL_Unload

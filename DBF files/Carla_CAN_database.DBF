@@ -1,0 +1,33 @@
+//******************************BUSMASTER Messages and signals Database ******************************//
+
+[DATABASE_VERSION] 1.3
+
+[PROTOCOL] CAN
+
+[BUSMASTER_VERSION] [3.2.2]
+
+[NUMBER_OF_MESSAGES] 6
+
+[START_MSG] CAN_speed,291,4,1,1,S
+[START_SIGNALS] speed_current_kmh,32,1,0,U,4294967295,0,1,0.000000,1.000000,Km/H,
+[END_MSG]
+
+[START_MSG] CAN_battery,292,4,1,1,S
+[START_SIGNALS] battery_current,32,1,0,U,4294967295,0,1,0.000000,1.000000,Amh,
+[END_MSG]
+
+[START_MSG] CAN_brake,294,4,1,1,S
+[START_SIGNALS] brake_current,32,1,0,U,4294967295,0,1,0.000000,1.000000,,
+[END_MSG]
+
+[START_MSG] CAN_throttle,293,4,1,1,S
+[START_SIGNALS] throttle_current,32,1,0,U,4294967295,0,1,0.000000,1.000000,,
+[END_MSG]
+
+[START_MSG] CAN_steering,295,4,1,1,S
+[START_SIGNALS] steering_current,32,1,0,U,4294967295,0,1,0.000000,1.000000,,
+[END_MSG]
+
+[START_MSG] CAN_gear,296,4,1,1,S
+[START_SIGNALS] gear_current,32,1,0,U,4294967295,0,1,0.000000,1.000000,,
+[END_MSG]

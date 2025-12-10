@@ -8,9 +8,9 @@ CXXFLAGS = -Wall -c
 
 dll = Steering_ECU_UDP.dll
 
-DBOBJFILE = 
+DBOBJFILE = "C:\ProgramData\BUSMASTER\General\DBCache\BFA_gcc10.3.0.obj" 
 
-DBINCLUDES = 
+DBINCLUDES = -include"C:\ProgramData\BUSMASTER\General\DBCache\BFA.h" 
 
 
 all: $(dll)
